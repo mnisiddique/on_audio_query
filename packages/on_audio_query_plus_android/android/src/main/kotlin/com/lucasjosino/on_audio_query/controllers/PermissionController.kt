@@ -37,7 +37,7 @@ class PermissionController : PermissionManagerInterface,
     override fun permissionStatus(): Boolean = permissions.all {
         // After "leaving" this class, context will be null so, we need this context argument to
         // call the [checkSelfPermission].
-        return ContextCompat.checkSelfPermission(
+        ContextCompat.checkSelfPermission(
             PluginProvider.context(),
             it
         ) == PackageManager.PERMISSION_GRANTED
@@ -72,9 +72,9 @@ class PermissionController : PermissionManagerInterface,
         // result and Android should continue executing other registered handlers.
         if (REQUEST_CODE != requestCode) return false
 
-        // Check permission
-        val isPermissionGranted = (grantResults.isNotEmpty()
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+        // Check permission - ensure all permissions are granted
+        val isPermissionGranted = grantResults.isNotEmpty() && 
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
 
         Log.d(TAG, "Permission accepted: $isPermissionGranted")
 
