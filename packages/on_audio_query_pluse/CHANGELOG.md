@@ -1,4 +1,14 @@
 
+
+## [[3.0.1](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.1)]
+
+### Fixes
+
+#### Android
+
+- **Fixed** wrong song ID when querying songs of a playlist.
+
+
 ## [[3.0.0](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.0)]
 
 ### Fixes
