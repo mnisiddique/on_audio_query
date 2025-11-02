@@ -48,12 +48,37 @@ class PermissionController : PermissionManagerInterface,
 
     override fun requestPermission() {
         Log.d(TAG, "Requesting permissions.")
-        Log.d(TAG, "SDK: ${Build.VERSION.SDK_INT}, Should retry request: $retryRequest")
+        Log.d(TAG, "SDK: ${'$'}{Build.VERSION.SDK_INT}, Should retry request: $retryRequest")
+
+        // If we already have permission, return success immediately to Flutter.
+        if (permissionStatus()) {
+            Log.d(TAG, "Permissions already granted, returning success to Flutter")
+            try {
+                val result = PluginProvider.tryGetResult()
+                result?.success(true)
+            } catch (_: Exception) {
+                Log.w(TAG, "Failed to deliver success result")
+            }
+            return
+        }
+
         val activity = PluginProvider.tryGetActivity()
         if (activity == null) {
             Log.w(TAG, "Activity not available to request permissions")
+            // If there's a pending Flutter result, return an error so Dart side knows the request couldn't be started.
+            try {
+                val result = PluginProvider.tryGetResult()
+                result?.error(
+                    "NoActivity",
+                    "Activity not available to request permissions",
+                    null
+                )
+            } catch (_: Exception) {
+                Log.w(TAG, "Failed to deliver error result")
+            }
             return
         }
+
         ActivityCompat.requestPermissions(activity, permissions, REQUEST_CODE)
     }
 
@@ -90,21 +115,21 @@ class PermissionController : PermissionManagerInterface,
                 Log.w(TAG, "No plugin result available to deliver permission result to; ignoring.")
                 return false
             }
-        } catch (e: PluginProvider.UninitializedPluginProviderException) {
+        } catch (_: PluginProvider.UninitializedPluginProviderException) {
             Log.w(TAG, "PluginProvider not initialized while checking hasResult; ignoring.")
             return false
-        } catch (e: Exception) {
-            Log.w(TAG, "Unexpected error while checking PluginProvider: ${e.message}")
+        } catch (_: Exception) {
+            Log.w(TAG, "Unexpected error while checking PluginProvider")
             return false
         }
 
         val result = try {
             PluginProvider.tryGetResult()
-        } catch (e: PluginProvider.UninitializedPluginProviderException) {
+        } catch (_: PluginProvider.UninitializedPluginProviderException) {
             Log.w(TAG, "PluginProvider not initialized while getting result; ignoring.")
             null
-        } catch (e: Exception) {
-            Log.w(TAG, "Unexpected error while getting plugin result: ${e.message}")
+        } catch (_: Exception) {
+            Log.w(TAG, "Unexpected error while getting plugin result")
             null
         }
 

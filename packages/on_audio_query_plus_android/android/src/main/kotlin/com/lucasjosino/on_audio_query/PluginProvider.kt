@@ -25,14 +25,15 @@ object PluginProvider {
     */
     var showDetailedLog: Boolean = false
 
-    // Renamed internal refs to avoid collision with accessor method names
+    // Keep context/activity as weak refs to avoid leaking the Activity/Context
     private lateinit var contextRef: WeakReference<Context>
 
     private lateinit var activityRef: WeakReference<Activity>
 
-    private lateinit var callRef: WeakReference<MethodCall>
+    // Use strong references for call/result so they are not GC'd while waiting for async callbacks
+    private var callRef: MethodCall? = null
 
-    private lateinit var resultRef: WeakReference<MethodChannel.Result>
+    private var resultRef: MethodChannel.Result? = null
 
     /**
      * Used to define the current [Activity] and [Context].
@@ -50,8 +51,8 @@ object PluginProvider {
      * Should be defined/redefined on every [MethodChannel.MethodCallHandler.onMethodCall] request.
      */
     fun setCurrentMethod(call: MethodCall, result: MethodChannel.Result) {
-        this.callRef = WeakReference(call)
-        this.resultRef = WeakReference(result)
+        this.callRef = call
+        this.resultRef = result
     }
 
     /**
@@ -81,7 +82,7 @@ object PluginProvider {
      * @return [MethodCall]
      */
     fun call(): MethodCall {
-        return this.callRef.get() ?: throw UninitializedPluginProviderException(ERROR_MESSAGE)
+        return this.callRef ?: throw UninitializedPluginProviderException(ERROR_MESSAGE)
     }
 
     /**
@@ -91,7 +92,7 @@ object PluginProvider {
      * @return [MethodChannel.Result]
      */
     fun result(): MethodChannel.Result {
-        return this.resultRef.get() ?: throw UninitializedPluginProviderException(ERROR_MESSAGE)
+        return this.resultRef ?: throw UninitializedPluginProviderException(ERROR_MESSAGE)
     }
 
     /**
@@ -101,9 +102,9 @@ object PluginProvider {
 
     fun hasActivity(): Boolean = this::activityRef.isInitialized && this.activityRef.get() != null
 
-    fun hasCall(): Boolean = this::callRef.isInitialized && this.callRef.get() != null
+    fun hasCall(): Boolean = this.callRef != null
 
-    fun hasResult(): Boolean = this::resultRef.isInitialized && this.resultRef.get() != null
+    fun hasResult(): Boolean = this.resultRef != null
 
     /**
      * Try getters that return null instead of throwing when the provider wasn't initialized.
@@ -112,9 +113,9 @@ object PluginProvider {
 
     fun tryGetActivity(): Activity? = if (this::activityRef.isInitialized) this.activityRef.get() else null
 
-    fun tryGetCall(): MethodCall? = if (this::callRef.isInitialized) this.callRef.get() else null
+    fun tryGetCall(): MethodCall? = this.callRef
 
-    fun tryGetResult(): MethodChannel.Result? = if (this::resultRef.isInitialized) this.resultRef.get() else null
+    fun tryGetResult(): MethodChannel.Result? = this.resultRef
 
     /**
      * Clear referents inside the WeakReferences. This keeps the variables initialized but
@@ -123,8 +124,8 @@ object PluginProvider {
     fun clear() {
         if (this::contextRef.isInitialized) this.contextRef.clear()
         if (this::activityRef.isInitialized) this.activityRef.clear()
-        if (this::callRef.isInitialized) this.callRef.clear()
-        if (this::resultRef.isInitialized) this.resultRef.clear()
+        this.callRef = null
+        this.resultRef = null
     }
 
     class UninitializedPluginProviderException(msg: String) : Exception(msg)
