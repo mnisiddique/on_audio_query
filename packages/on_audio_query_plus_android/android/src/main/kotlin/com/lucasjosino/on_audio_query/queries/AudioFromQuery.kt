@@ -178,6 +178,19 @@ class AudioFromQuery : ViewModel() {
                 val tempExtraData = helper.loadSongExtraInfo(URI, tempData)
                 tempData.putAll(tempExtraData)
 
+                // Ensure the song id is the actual AUDIO_ID when using Members URIs.
+                val isPlaylistMembers = pUri.toString().contains("audio/playlists", ignoreCase = true)
+                val audioIdColumn = if (isPlaylistMembers) {
+                    MediaStore.Audio.Playlists.Members.AUDIO_ID
+                } else {
+                    MediaStore.Audio.Genres.Members.AUDIO_ID
+                }
+                val idx = cursor.getColumnIndex(audioIdColumn)
+                if (idx != -1) {
+                    // Overwrite _id with the actual audio id from the Members table.
+                    tempData["_id"] = cursor.getInt(idx)
+                }
+
                 songsFrom.add(tempData)
             }
 
