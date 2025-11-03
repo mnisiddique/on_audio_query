@@ -1,4 +1,4 @@
-## [[3.0.4](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.4)]
+## [[3.0.5](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.5)]
 
 ### Fixes
 
