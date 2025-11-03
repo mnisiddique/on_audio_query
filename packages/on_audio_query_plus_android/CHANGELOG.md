@@ -1,4 +1,4 @@
-## 1.1.6
+## 1.1.8
 
 **Bug Fixes:**
 - Fixed permission result not being returned from Android to Flutter

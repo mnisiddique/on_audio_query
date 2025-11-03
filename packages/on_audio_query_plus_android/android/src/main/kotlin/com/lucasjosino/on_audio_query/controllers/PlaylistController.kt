@@ -90,6 +90,7 @@ class PlaylistController {
                 contentValues.put(MediaStore.Audio.Playlists.Members.PLAY_ORDER, playOrder + 1)
                 // AUDIO_ID is an integer column; put as Long or Int is acceptable
                 contentValues.put(MediaStore.Audio.Playlists.Members.AUDIO_ID, audioId)
+                //contentValues.put(MediaStore.Audio.AudioColumns._ID, audioId)
                 resolver.insert(membersUri, contentValues)
                 result.success(true)
             } catch (e: Exception) {

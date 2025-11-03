@@ -32,6 +32,8 @@ class AudioFromQuery : ViewModel() {
     private val helper = QueryHelper()
     private var pId = 0
     private var pUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    // When querying playlist/genre members we need to include the actual audio id column
+    private var memberProjection: Array<String>? = null
 
     // None of this methods can be null.
     private lateinit var where: String
@@ -69,6 +71,7 @@ class AudioFromQuery : ViewModel() {
         Log.d(TAG, "\tsortType: $sortType")
         Log.d(TAG, "\ttype: $type")
         Log.d(TAG, "\turi: $URI")
+        Log.d(TAG,"----")
 
         // TODO: Add a better way to handle this query
         // This will fix (for now) the problem between Android < 30 && Android > 30
@@ -104,10 +107,10 @@ class AudioFromQuery : ViewModel() {
         withContext(Dispatchers.IO) {
             // Setup the cursor with 'uri', 'projection', 'selection'(where) and 'values'(whereVal).
             val cursor = resolver.query(URI, songProjection(), where, arrayOf(whereVal), sortType)
-
             val songsFromList: ArrayList<MutableMap<String, Any?>> = ArrayList()
 
             Log.d(TAG, "Cursor count: ${cursor?.count}")
+            Log.d(TAG, "Cursor result: ${cursor.toString()}")
 
             // For each item(song) inside this "cursor", take one and "format"
             // into a 'Map<String, dynamic>'.
@@ -135,6 +138,9 @@ class AudioFromQuery : ViewModel() {
         call: MethodCall,
         type: Int
     ) {
+
+        Log.i(TAG,"querySongsFromPlaylistOrGenre")
+
         val info = call.argument<Any>("where")!!
 
         // Check if playlist exists using the id.
@@ -152,6 +158,24 @@ class AudioFromQuery : ViewModel() {
             MediaStore.Audio.Playlists.Members.getContentUri("external", pId.toLong())
         }
 
+        // Build a projection that ensures the returned `_id` is the actual audio id.
+        // Replace the original `_id` (member row id) with the members.AUDIO_ID aliased as `_id`.
+        val baseProj = songProjection().toMutableList()
+        val audioIdCol = if (type == 4 || type == 5) {
+            MediaStore.Audio.Genres.Members.AUDIO_ID
+        } else {
+            MediaStore.Audio.Playlists.Members.AUDIO_ID
+        }
+
+        // Remove the member row `_id` if present and add an alias so the cursor returns the
+        // actual audio id under the canonical `_id` column.
+        // Avoid using SQL expressions like "audio_id AS _id" in the projection because some
+        // ContentProviders reject expressions in the projection (causing "Invalid column ...").
+        // Instead, make sure the audio id column is present and map it to "_id" later when
+        // building the result (see loadSongsFromPlaylistOrGenre).
+        if (!baseProj.contains(audioIdCol)) baseProj.add(audioIdCol)
+        memberProjection = baseProj.toTypedArray()
+
         // Query everything in background for a better performance.
         viewModelScope.launch {
             val resultSongsFrom = loadSongsFromPlaylistOrGenre()
@@ -163,7 +187,9 @@ class AudioFromQuery : ViewModel() {
         withContext(Dispatchers.IO) {
             val songsFrom: ArrayList<MutableMap<String, Any?>> = ArrayList()
 
-            val cursor = resolver.query(pUri, songProjection(), null, null, sortType)
+            // Use memberProjection when available so we can read the AUDIO_ID column
+            val projection = memberProjection ?: songProjection()
+            val cursor = resolver.query(pUri, projection, null, null, sortType)
 
             Log.d(TAG, "Cursor count: ${cursor?.count}")
 
@@ -174,22 +200,16 @@ class AudioFromQuery : ViewModel() {
                     tempData[media] = helper.loadSongItem(media, cursor)
                 }
 
+                // If this is a playlist/genre members query, the actual audio id is present in
+                // the "audio_id" column. Ensure callers get the real media id by setting
+                // the conventional "_id" to the audio id when available.
+                if (tempData.containsKey("audio_id") && tempData["audio_id"] != null) {
+                    tempData["_id"] = tempData["audio_id"]
+                }
+
                 //Get a extra information from audio, e.g: extension, uri, etc..
                 val tempExtraData = helper.loadSongExtraInfo(URI, tempData)
                 tempData.putAll(tempExtraData)
-
-                // Ensure the song id is the actual AUDIO_ID when using Members URIs.
-                val isPlaylistMembers = pUri.toString().contains("audio/playlists", ignoreCase = true)
-                val audioIdColumn = if (isPlaylistMembers) {
-                    MediaStore.Audio.Playlists.Members.AUDIO_ID
-                } else {
-                    MediaStore.Audio.Genres.Members.AUDIO_ID
-                }
-                val idx = cursor.getColumnIndex(audioIdColumn)
-                if (idx != -1) {
-                    // Overwrite _id with the actual audio id from the Members table.
-                    tempData["_id"] = cursor.getInt(idx)
-                }
 
                 songsFrom.add(tempData)
             }

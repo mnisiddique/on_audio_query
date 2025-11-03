@@ -16,15 +16,27 @@ class QueryHelper {
         songData: MutableMap<String, Any?>
     ): MutableMap<String, Any?> {
         val file = File(songData["_data"].toString())
-
-        //Getting displayName without [Extension].
         songData["_display_name_wo_ext"] = file.nameWithoutExtension
-        //Adding only the extension
         songData["file_extension"] = file.extension
 
-        //A different type of "data"
-        val tempUri = ContentUris.withAppendedId(uri, songData["_id"].toString().toLong())
-        songData["_uri"] = tempUri.toString()
+        // Prefer the actual audio id when available (playlist/genre members use "audio_id")
+        val idValue = when {
+            songData.containsKey("_id") -> songData["_id"]
+            songData.containsKey("audio_id") -> songData["audio_id"]
+            else -> null
+        }
+
+        if (idValue != null) {
+            val idLong = when (idValue) {
+                is Number -> idValue.toLong()
+                is String -> idValue.toLongOrNull() ?: 0L
+                else -> 0L
+            }
+            val tempUri = ContentUris.withAppendedId(uri, idLong)
+            songData["_uri"] = tempUri.toString()
+        } else {
+            songData["_uri"] = null
+        }
 
         return songData
     }
@@ -32,11 +44,12 @@ class QueryHelper {
     //This method will separate [String] from [Int]
     fun loadSongItem(itemProperty: String, cursor: Cursor): Any? {
         return when (itemProperty) {
-            // Int
+            // Int/Long ids
             "_id",
             "album_id",
-            "artist_id" -> {
-                // The [id] from Android >= 30/R is a [Long] instead of [Int].
+            "artist_id",
+            // include audio_id for member queries
+            "audio_id" -> {
                 if (Build.VERSION.SDK_INT >= 30) {
                     cursor.getLong(cursor.getColumnIndex(itemProperty))
                 } else {
