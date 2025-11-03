@@ -89,6 +89,10 @@ class _SongsPageState extends State<SongsPage> {
                                 value: 'add_to_playlist',
                                 child: Text('Add to Playlist'),
                               ),
+                              const PopupMenuItem(
+                                value: 'remove_from_playlist',
+                                child: Text('Remove from Playlist'),
+                              ),
                             ];
                           },
                           onSelected: (value) {
@@ -104,6 +108,23 @@ class _SongsPageState extends State<SongsPage> {
                                   String message = result
                                       ? 'Song added to ${playlist.playlist}'
                                       : 'Failed to add song to ${playlist.playlist}';
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(message)),
+                                  );
+                                }
+                              });
+                            } else if (value == 'remove_from_playlist') {
+                              PlaylistSelectionBottomSheet.show(context)
+                                  .then((playlist) async {
+                                if (playlist != null) {
+                                  final result =
+                                      await _audioQuery.removeFromPlaylist(
+                                    playlist.id,
+                                    item.data![index].id,
+                                  );
+                                  String message = result
+                                      ? 'Song Removed from ${playlist.playlist}'
+                                      : 'Failed to remove song from ${playlist.playlist}';
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text(message)),
                                   );
