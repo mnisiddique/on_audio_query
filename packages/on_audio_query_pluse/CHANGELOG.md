@@ -1,4 +1,10 @@
+## [[3.0.4](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.4)]
 
+### Fixes
+
+#### Android
+
+- **Fixed** Fixed issue of removing song from playlist.
 
 ## [[3.0.3](https://github.com/TalebRafiepour/on_audio_query_pluse/releases/tag/3.0.3)]
 
