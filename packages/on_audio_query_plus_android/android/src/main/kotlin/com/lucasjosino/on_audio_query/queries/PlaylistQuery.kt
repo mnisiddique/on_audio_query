@@ -5,10 +5,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lucasjosino.on_audio_query.PluginProvider
-import com.lucasjosino.on_audio_query.controllers.PermissionController
 import com.lucasjosino.on_audio_query.queries.helper.QueryHelper
 import com.lucasjosino.on_audio_query.types.checkPlaylistsUriType
-import com.lucasjosino.on_audio_query.types.sorttypes.checkGenreSortType
+import com.lucasjosino.on_audio_query.types.sorttypes.checkPlaylistSortType
 import com.lucasjosino.on_audio_query.utils.playlistProjection
 import io.flutter.Log
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,7 @@ class PlaylistQuery : ViewModel() {
         this.resolver = context.contentResolver
 
         // Sort: Type and Order.
-        sortType = checkGenreSortType(
+        sortType = checkPlaylistSortType(
             call.argument<Int>("sortType"),
             call.argument<Int>("orderType")!!,
             call.argument<Boolean>("ignoreCase")!!
@@ -64,11 +63,16 @@ class PlaylistQuery : ViewModel() {
     private suspend fun loadPlaylists(): ArrayList<MutableMap<String, Any?>> =
         withContext(Dispatchers.IO) {
             // Setup the cursor with 'uri' and 'projection'.
-            val cursor = resolver.query(uri, playlistProjection, null, null, null)
+            val cursor = resolver.query(uri, playlistProjection, null, null, sortType)
 
             val playlistList: ArrayList<MutableMap<String, Any?>> = ArrayList()
 
             Log.d(TAG, "Cursor count: ${cursor?.count}")
+            
+            if (cursor == null) {
+                Log.e(TAG, "ERROR: Cursor is null when querying playlists")
+                return@withContext playlistList
+            }
 
             // For each item(playlist) inside this "cursor", take one and "format"
             // into a 'Map<String, dynamic>'.
@@ -79,9 +83,23 @@ class PlaylistQuery : ViewModel() {
                     playlistData[playlistMedia] = helper.loadPlaylistItem(playlistMedia, cursor)
                 }
 
+                Log.d(TAG, "Loaded playlist data: $playlistData")
+
+                // Validate that _id exists and is not null
+                val playlistId = playlistData["_id"]
+                if (playlistId == null) {
+                    Log.e(TAG, "ERROR: Playlist ID is null! Playlist data: $playlistData")
+                    Log.e(TAG, "Available columns: ${cursor.columnNames.joinToString(", ")}")
+                    continue
+                }
+
+                Log.d(TAG, "Playlist ID = $playlistId, type = ${playlistId.javaClass.simpleName}")
+
                 // Count and add the number of songs for every playlist.
-                val mediaCount = helper.getMediaCount(1, playlistData["_id"].toString(), resolver)
+                val mediaCount = helper.getMediaCount(1, playlistId.toString(), resolver)
                 playlistData["num_of_songs"] = mediaCount
+
+                Log.d(TAG, "Playlist ${playlistData["_id"]} has $mediaCount songs")
 
                 playlistList.add(playlistData)
             }
